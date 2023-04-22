@@ -302,7 +302,6 @@ class BaseGPTQForCausalLM(nn.Module):
         use_safetensors: bool = False,
         eval: bool = True,
         warmup_autotune: bool = True):
-    ):
         """load quantized model from local disk"""
         config = AutoConfig.from_pretrained(save_dir)
         if config.model_type not in SUPPORTED_MODELS:
@@ -338,11 +337,11 @@ class BaseGPTQForCausalLM(nn.Module):
             model.load_state_dict(safe_load(model_save_name, "cpu"))
         else:
             model.load_state_dict(torch.load(model_save_name))
-            
-        if warmup_autotune:
-            autotune_warmup_linear(model, transpose=not(eval))
         
         model.seqlen = model.config.max_position_embeddings
+
+        if warmup_autotune:
+            autotune_warmup_linear(model, transpose=not(eval), seqlen=model.seqlen)
 
         model.eval()
         model.to(device)
