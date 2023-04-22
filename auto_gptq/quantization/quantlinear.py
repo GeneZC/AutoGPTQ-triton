@@ -424,6 +424,6 @@ def autotune_warmup_linear(model, transpose=False, seqlen=2048):
 
 __all__ = [
     "make_quantlinear",
-    "autotune_warmup_linear"
+    "autotune_warmup_linear",
     "QuantLinear"
 ]
