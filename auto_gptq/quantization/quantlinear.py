@@ -377,7 +377,7 @@ class QuantLinear(nn.Module):
         return out.reshape(out_shape)
 
 
-def make_quant_linear(module, names, bits, groupsize, name=''):
+def make_quantlinear(module, names, bits, groupsize, name=''):
     if isinstance(module, QuantLinear):
         return
     for attr in dir(module):
@@ -387,7 +387,7 @@ def make_quant_linear(module, names, bits, groupsize, name=''):
             delattr(module, attr)
             setattr(module, attr, QuantLinear(bits, groupsize, tmp.in_features, tmp.out_features, tmp.bias is not None))
     for name1, child in module.named_children():
-        make_quant_linear(child, names, bits, groupsize, name + '.' + name1 if name != '' else name1)
+        make_quantlinear(child, names, bits, groupsize, name + '.' + name1 if name != '' else name1)
 
 
 def autotune_warmup_linear(model, transpose=False, seqlen=2048):
