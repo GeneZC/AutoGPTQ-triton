@@ -2,7 +2,7 @@ from logging import getLogger
 
 import torch.nn as nn
 
-from ..quantization import make_quant, QuantLinear
+from ..quantization import make_quantlinear, QuantLinear
 
 logger = getLogger(__name__)
 
@@ -27,7 +27,7 @@ def pack_model(model, quantizers, bits, group_size):
     logger.info('Packing model...')
     layers = find_layers(model)
     layers = {n: layers[n] for n in quantizers}
-    make_quant(model, quantizers, bits, group_size)
+    make_quantlinear(model, quantizers, bits, group_size)
     qlayers = find_layers(model, [QuantLinear])
     for name in qlayers:
         logger.info(name)
