@@ -1,2 +1,3 @@
 from .gptq import *
-from .quant import *
+from .quantlinear import *
+from .quantizer import *
