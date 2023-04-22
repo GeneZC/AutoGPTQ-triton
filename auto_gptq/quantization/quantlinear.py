@@ -3,6 +3,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.cuda.amp import custom_bwd, custom_fwd
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 try:
     import triton
@@ -257,7 +260,7 @@ try:
         c_mask = (offs_am[:, None] < M) & (offs_bk[None, :] < K)
         tl.store(c_ptrs, accumulator, mask=c_mask)
 except:
-    print('trioton not installed.')
+    logger.warning('trioton not installed.')
 
 
 def matmul248(input, qweight, scales, qzeros, g_idx, bits, maxq):
@@ -408,9 +411,8 @@ def autotune_warmup_linear(model, transpose=False, seqlen=2048):
         if (k, n) not in kn_values:
             kn_values[(k, n)] = (m.qweight.cuda(), m.scales.cuda(), m.qzeros.cuda(), m.g_idx.cuda(), m.bits, m.maxq)
 
-    print(f'Found {len(kn_values)} unique KN Linear values.')
-
-    print('Warming up autotune cache ...')
+    logger.info(f'Found {len(kn_values)} unique KN Linear values.')
+    logger.info('Warming up autotune cache ...')
     with torch.no_grad():
         for m in tqdm(range(0, math.ceil(math.log2(seqlen)) + 1)):
             m = 2**m
