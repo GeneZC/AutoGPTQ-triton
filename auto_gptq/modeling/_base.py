@@ -298,7 +298,7 @@ class BaseGPTQForCausalLM(nn.Module):
     def from_quantized(
         cls,
         save_dir: str,
-        device: str = "cpu",
+        device: str = "cuda:0",
         use_safetensors: bool = False,
         eval: bool = True,
         warmup_autotune: bool = True):
@@ -326,7 +326,6 @@ class BaseGPTQForCausalLM(nn.Module):
         torch.set_default_dtype(torch.half)
         model = AutoModelForCausalLM.from_config(config)
         torch.set_default_dtype(torch.float)
-        model = model.eval()
         layers = find_layers(model)
         for name in ['lm_head']:
             if name in layers:
@@ -342,8 +341,8 @@ class BaseGPTQForCausalLM(nn.Module):
 
         if warmup_autotune:
             autotune_warmup_linear(model, transpose=not(eval), seqlen=model.seqlen)
-
-        model.eval()
+        if eval:
+            model.eval()
         model.to(device)
 
         return cls(model, True, quantize_config)
