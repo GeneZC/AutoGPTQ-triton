@@ -20,7 +20,7 @@ logger = getLogger(__name__)
 
 @dataclass
 class BaseQuantizeConfig:
-    bits: int = field(default=4, metadata={"choices": [2, 3, 4, 8]})
+    bits: int = field(default=4, metadata={"choices": [2, 4, 8]})
     damp_percent: float = field(default=0.01)
     desc_act: bool = field(default=True)
     group_size: int = field(default=-1)
@@ -299,7 +299,9 @@ class BaseGPTQForCausalLM(nn.Module):
         cls,
         save_dir: str,
         device: str = "cpu",
-        use_safetensors: bool = False
+        use_safetensors: bool = False,
+        eval: bool = True,
+        warmup_autotune: bool = True):
     ):
         """load quantized model from local disk"""
         config = AutoConfig.from_pretrained(save_dir)
@@ -330,12 +332,16 @@ class BaseGPTQForCausalLM(nn.Module):
         for name in ['lm_head']:
             if name in layers:
                 del layers[name]
-        make_quant(model, layers, quantize_config.bits, quantize_config.group_size)
+        make_quantlinear(model, layers, quantize_config.bits, quantize_config.group_size)
 
         if model_save_name.endswith('.safetensors'):
             model.load_state_dict(safe_load(model_save_name, "cpu"))
         else:
             model.load_state_dict(torch.load(model_save_name))
+            
+        if warmup_autotune:
+            autotune_warmup_linear(model, transpose=not(eval))
+        
         model.seqlen = model.config.max_position_embeddings
 
         model.eval()
