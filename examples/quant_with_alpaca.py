@@ -15,55 +15,35 @@ def load_data(data_path, tokenizer, n_samples):
 
     raw_data = random.sample(raw_data, k=min(n_samples, len(raw_data)))
 
-    def dummy_gen():
-        return raw_data
-
     def tokenize(examples):
-        instructions = examples["instruction"]
-        inputs = examples["input"]
-        outputs = examples["output"]
-
-        prompts = []
-        texts = []
-        input_ids = []
-        attention_mask = []
-        for istr, inp, opt in zip(instructions, inputs, outputs):
+        samples = []
+        for example in examples:
+            istr = example["instruction"]
+            inp = example["input"]
+            opt = example["output"]
+            prompt = "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.\n\n"
             if inp:
-                prompt = f"Instruction:\n{istr}\nInput:\n{inp}\nOutput:\n"
+                prompt += f"Human: <s>{istr} {inp}</s>Assistant: <s>"
+                opt = f"{opt}</s>"
                 text = prompt + opt
             else:
-                prompt = f"Instruction:\n{istr}\nOutput:\n"
+                prompt += f"Human: <s>{istr}</s>Assistant: <s>"
+                opt = f"{opt}</s>"
                 text = prompt + opt
             if len(tokenizer(prompt)["input_ids"]) >= tokenizer.model_max_length:
                 continue
 
             tokenized_data = tokenizer(text)
+            samples.append({
+                "input_ids": tokenized_data["input_ids"][: tokenizer.model_max_length],
+                "attention_mask": tokenized_data["attention_mask"][: tokenizer.model_max_length],
+                "prompt": prompt,
+                "output": opt,
+            })
 
-            input_ids.append(tokenized_data["input_ids"][: tokenizer.model_max_length])
-            attention_mask.append(tokenized_data["attention_mask"][: tokenizer.model_max_length])
-            prompts.append(prompt)
-            texts.append(text)
-
-        return {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "prompt": prompts
-        }
-
-    dataset = Dataset.from_generator(dummy_gen)
-
-    dataset = dataset.map(
-        tokenize,
-        batched=True,
-        batch_size=len(dataset),
-        num_proc=1,
-        keep_in_memory=True,
-        load_from_cache_file=False,
-        remove_columns=["instruction", "input"]
-    )
-
-    dataset = dataset.to_list()
-
+        return samples
+    
+    dataset = tokenize(raw_data)
     for sample in dataset:
         sample["input_ids"] = torch.LongTensor(sample["input_ids"])
         sample["attention_mask"] = torch.LongTensor(sample["attention_mask"])
@@ -77,7 +57,7 @@ def main():
     parser.add_argument("--quantized_model_dir", type=str, default=None)
     parser.add_argument("--bits", type=int, default=4, choices=[2, 3, 4, 8])
     parser.add_argument("--group_size", type=int, default=128)
-    parser.add_argument("--num_samples", type=int, default=128)
+    parser.add_argument("--num_samples", type=int, default=1024)
     parser.add_argument("--save_and_reload", action="store_true")
     parser.add_argument("--fast_tokenizer", action="store_true")
     args = parser.parse_args()
@@ -104,7 +84,7 @@ def main():
         model = AutoGPTQForCausalLM.from_quantized(args.quantized_model_dir, device="cuda:0")
 
     pipeline = TextGenerationPipeline(model=model, tokenizer=tokenizer, device="cuda:0")
-    for example in random.sample(examples, k=min(4, len(examples))):
+    for example in random.sample(examples, k=min(7, len(examples))):
         print(f"prompt: {example['prompt']}")
         print(f"origin: {example['output']}")
         start = time.time()
@@ -112,7 +92,7 @@ def main():
             example['prompt'],
             return_full_text=False,
             num_beams=1,
-            max_length=len(example["input_ids"]) + 128  # use this instead of max_new_token to disable UserWarning when integrate with logging
+            max_length=len(example["input_ids"]) + 512  # use this instead of max_new_token to disable UserWarning when integrate with logging
         )[0]['generated_text']
         end = time.time()
         print(f"quant: {generated_text}")
