@@ -57,6 +57,7 @@ class BaseGPTQForCausalLM(nn.Module):
     layers_block_name: str = None
     outside_layer_modules: List[str] = None
     inside_layer_modules: List[List[str]] = None
+    lm_head_name: str = "lm_head"
 
     def __init__(self, model: PreTrainedModel, quantized: bool, quantize_config: BaseQuantizeConfig):
         super().__init__()
@@ -357,7 +358,7 @@ class BaseGPTQForCausalLM(nn.Module):
         model = AutoModelForCausalLM.from_config(config)
         torch.set_default_dtype(torch.float)
         layers = find_layers(model)
-        for name in ['lm_head']:
+        for name in [cls.lm_head_name]:
             if name in layers:
                 del layers[name]
         make_quantlinear(model, layers, quantize_config.bits, quantize_config.group_size)
